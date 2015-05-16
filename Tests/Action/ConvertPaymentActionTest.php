@@ -1,7 +1,7 @@
 <?php
 namespace Payum\Paypal\ExpressCheckout\Nvp\Tests\Action\Api;
 
-use Payum\Core\Model\Token;
+use Payum\Core\Request\GetCurrency;
 use Payum\Core\Tests\GenericActionTest;
 use Payum\Paypal\ExpressCheckout\Nvp\Action\ConvertPaymentAction;
 use Payum\Core\Model\Payment;
@@ -40,17 +40,32 @@ class ConvertPaymentActionTest extends GenericActionTest
      */
     public function shouldCorrectlyConvertOrderToDetailsAndSetItBack()
     {
-        $order = new Payment();
-        $order->setNumber('theNumber');
-        $order->setCurrencyCode('USD');
-        $order->setTotalAmount(123);
-        $order->setDescription('the description');
-        $order->setClientId('theClientId');
-        $order->setClientEmail('theClientEmail');
+        $gatewayMock = $this->getMock('Payum\Core\GatewayInterface');
+        $gatewayMock
+            ->expects($this->once())
+            ->method('execute')
+            ->with($this->isInstanceOf('Payum\Core\Request\GetCurrency'))
+            ->willReturnCallback(function(GetCurrency $request) {
+                $request->name = 'US Dollar';
+                $request->alpha3 = 'USD';
+                $request->numeric = 123;
+                $request->exp = 2;
+                $request->country = 'US';
+            })
+        ;
+
+        $payment = new Payment();
+        $payment->setNumber('theNumber');
+        $payment->setCurrencyCode('USD');
+        $payment->setTotalAmount(123);
+        $payment->setDescription('the description');
+        $payment->setClientId('theClientId');
+        $payment->setClientEmail('theClientEmail');
 
         $action = new ConvertPaymentAction();
+        $action->setGateway($gatewayMock);
 
-        $action->execute($convert = new Convert($order, 'array'));
+        $action->execute($convert = new Convert($payment, 'array'));
 
         $details = $convert->getResult();
 
@@ -71,17 +86,32 @@ class ConvertPaymentActionTest extends GenericActionTest
      */
     public function shouldNotOverwriteAlreadySetExtraDetails()
     {
-        $order = new Payment();
-        $order->setCurrencyCode('USD');
-        $order->setTotalAmount(123);
-        $order->setDescription('the description');
-        $order->setDetails(array(
+        $gatewayMock = $this->getMock('Payum\Core\GatewayInterface');
+        $gatewayMock
+            ->expects($this->once())
+            ->method('execute')
+            ->with($this->isInstanceOf('Payum\Core\Request\GetCurrency'))
+            ->willReturnCallback(function(GetCurrency $request) {
+                $request->name = 'US Dollar';
+                $request->alpha3 = 'USD';
+                $request->numeric = 123;
+                $request->exp = 2;
+                $request->country = 'US';
+            })
+        ;
+
+        $payment = new Payment();
+        $payment->setCurrencyCode('USD');
+        $payment->setTotalAmount(123);
+        $payment->setDescription('the description');
+        $payment->setDetails(array(
             'foo' => 'fooVal',
         ));
 
         $action = new ConvertPaymentAction();
+        $action->setGateway($gatewayMock);
 
-        $action->execute($convert = new Convert($order, 'array'));
+        $action->execute($convert = new Convert($payment, 'array'));
 
         $details = $convert->getResult();
 
